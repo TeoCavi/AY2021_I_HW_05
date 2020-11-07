@@ -31,8 +31,9 @@
 #define LIS3DH_OUT_Z_L 0x2C
 #define LIS3DH_OUT_Z_H 0x2D
 
-#define M_digit_TO_MS2 2*9.8/2047
-#define Q_digit_To_MS2 M_digit_TO_MS2*4095 
+//#define M_digit_TO_MS2 2*9.8/2047
+#define M_digit_TO_MS2 4*9.8/4095
+//#define Q_digit_To_MS2 M_digit_TO_MS2*4095 
 
 
 
@@ -41,10 +42,9 @@ ErrorCode error;
 uint8_t Acc_X[2];
 uint8_t Acc_Y[2];
 uint8_t Acc_Z[2];
-uint16 A_X_u;
-uint16 A_Y_u;
-int16 A_Y_ui;
-uint16 A_Z_u;
+int16 A_X_u;
+int16 A_Y_u;
+int16 A_Z_u;
 int16 A_X;
 int16 A_Y;
 int16 A_Z;
@@ -142,48 +142,51 @@ int main(void)
         
         if (error == NO_ERROR)
         {
-            A_X_u = (uint16)((Acc_X[0] | (Acc_X[1]<<8)))>>4;
-            A_Y_u = (uint16)((Acc_Y[0] | (Acc_Y[1]<<8)))>>4;
-            A_Z_u = (uint16)((Acc_Z[0] | (Acc_Z[1]<<8)))>>4;
+            A_X_u = (int16)((Acc_X[0] | (Acc_X[1]<<8)))>>4;
+            A_Y_u = (int16)((Acc_Y[0] | (Acc_Y[1]<<8)))>>4;
+            A_Z_u = (int16)((Acc_Z[0] | (Acc_Z[1]<<8)))>>4;
             
-            if (A_X_u >= 0 && A_X_u <=2047) 
+            /*if (A_X_u >= 0 && A_X_u <=2047) 
             {
                 A_X_Conv = (A_X_u*M_digit_TO_MS2)*1000;     
             }
             else if (A_X_u >2047 && A_X_u <4096)
             {
                 A_X_Conv = (A_X_u*M_digit_TO_MS2 - Q_digit_To_MS2)*1000;
-            }
+            }*/
             
+            A_X_Conv = (A_X_u*M_digit_TO_MS2)*1000;
             A_X = (int16)(A_X_Conv);
             
             Acc_TOT[1] = A_X & 0xFF;
             Acc_TOT[2] = A_X >> 8;
 
             
-            if (A_Y_u >= 0 && A_Y_u <=2047) 
+            /*if (A_Y_u >= 0 && A_Y_u <=2047) 
             {
                 A_Y_Conv = (A_Y_u*M_digit_TO_MS2)*1000;     
             }
             else if (A_Y_u >2047 && A_Y_u <4096)
             {
                 A_Y_Conv = (A_Y_u*M_digit_TO_MS2 - Q_digit_To_MS2)*1000;
-            }
+            }*/
             
+            A_Y_Conv = (A_Y_u*M_digit_TO_MS2)*1000;
             A_Y = (int16)(A_Y_Conv);
 
             Acc_TOT[3] = A_Y & 0xFF;
             Acc_TOT[4] = A_Y >> 8;
             
-            if (A_Z_u >= 0 && A_Z_u <=2047) 
+            /*if (A_Z_u >= 0 && A_Z_u <=2047) 
             {
                 A_Z_Conv = (A_Z_u*M_digit_TO_MS2)*1000;     
             }
             else if (A_Z_u >2047 && A_Z_u <4096)
             {
                 A_Z_Conv = (A_Z_u*M_digit_TO_MS2 - Q_digit_To_MS2)*1000;
-            }
+            }*/
             
+            A_Z_Conv = (A_Z_u*M_digit_TO_MS2)*1000;
             A_Z = (int16)(A_Z_Conv);
             
             Acc_TOT[5] = (uint8_t)(A_Z & 0xFF);
