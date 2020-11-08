@@ -36,7 +36,7 @@
     #define CTRL_REG1_FREQ_100  0x57
     #define CTRL_REG1_FREQ_200  0x67
     
-    uint8 freq;
+    
     volatile uint8 flag_button;
     
     CY_ISR_PROTO(Custom_DEBOUNCER_ISR);

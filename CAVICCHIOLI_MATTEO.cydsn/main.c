@@ -55,6 +55,7 @@ ErrorCode error;
 
 
 uint8 check;
+uint8 freq;
 volatile uint8 flag_button = 1;
 
 uint8_t Acc_X[ACC_AXIAL_SIZE];
@@ -112,64 +113,22 @@ int main(void)
     CyDelay(5);
     
     
-    do
+
+    error = I2C_Peripheral_WriteRegister(DEVICE_ADDRESS, LIS3DH_CTRL_REG4, CTRL_REG4_HR);
+    if (error == NO_ERROR)
     {
-        error = I2C_Peripheral_WriteRegister(DEVICE_ADDRESS, LIS3DH_CTRL_REG4, CTRL_REG4_HR);
+        error = I2C_Peripheral_WriteRegister(DEVICE_ADDRESS, LIS3DH_CTRL_REG1, freq);
         if (error == NO_ERROR)
         {
-            error = I2C_Peripheral_WriteRegister(DEVICE_ADDRESS, LIS3DH_CTRL_REG1, freq);
-            if (error == NO_ERROR)
-            {
-                
-                UART_PutString("ACCELEROMETER READY");
-            }
-            else
-            {
-                UART_PutString("ERROR OCCURRED DURING REGISTER SETTING");   
-            }
+            
+            UART_PutString("ACCELEROMETER READY");
         }
-    } 
-    while(error != NO_ERROR);
+        else
+        {
+            UART_PutString("ERROR OCCURRED DURING REGISTER SETTING");   
+        }
+    }
 
-    
-    
-    
-    
-
-    /*if (error == NO_ERROR)
-    {
-        sprintf(message, "CONTROL REGISTER 4 successfully written as: 0x%02X\r\n", CTRL_REG4_HR);
-        UART_PutString(message); 
-    }
-    else
-    {
-        UART_PutString("Error occurred during I2C comm to set control register 4\r\n");   
-    }*/
-
-    
-    
-    /*error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_CTRL_REG1, &ctrl_reg1);
-    
-    if (error == NO_ERROR)
-    {
-        sprintf(message, "CONTROL REGISTER 1 after overwrite operation: 0x%02X\r\n", ctrl_reg1);
-        UART_PutString(message); 
-    }
-    else
-    {
-        UART_PutString("Error occurred during I2C comm to read control register 1\r\n");   
-    }
-    
-    if (error == NO_ERROR)
-    {
-        sprintf(message, "CONTROL REGISTER 1 successfully written as: 0x%02X\r\n", LIS3DH_CTRL_REG1_ODR);
-        UART_PutString(message); 
-    }
-    else
-    {
-        UART_PutString("Error occurred during I2C comm to set control register 4\r\n");   
-    }*/
-    
     Clock_DEB_Start();
     ISR_BUTTON_StartEx(Custom_DEBOUNCER_ISR);
     
@@ -178,16 +137,29 @@ int main(void)
     
     for(;;)
     {
-        if (flag_button == BUTTON_PRESSED) //&& stop_write == I2C_MSTR_NO_ERROR && stop_read == I2C_MSTR_NO_ERROR) //voglio che tutte le operazioni di lettura siano terminate prima di scrivere il registro
+        if (flag_button == BUTTON_PRESSED && stop_read == I2C_MSTR_NO_ERROR && stop_write == I2C_MSTR_NO_ERROR)  //voglio che tutte le operazioni di lettura siano terminate prima di scrivere il registro
         {
-            //I2C_Peripheral_Stop();
-            //CyDelay(5);
-            //I2C_Peripheral_Start();
-            //CyDelay(5);
+            
+            freq = EEPROM_ReadByte(FREQ_ADRESS);
+            
+            switch(freq)
+            {
+                case CTRL_REG1_FREQ_200:
+                    EEPROM_UpdateTemperature();
+                    EEPROM_WriteByte(CTRL_REG1_FREQ_1, FREQ_ADRESS);
+                    break;
+                default:
+                    EEPROM_UpdateTemperature();
+                    EEPROM_WriteByte(freq + FREQ_VARIATION, FREQ_ADRESS);
+                    break;
+            }
+            
+            freq = EEPROM_ReadByte(FREQ_ADRESS);
+            
             I2C_Peripheral_WriteRegister(DEVICE_ADDRESS, LIS3DH_CTRL_REG1, freq); //funzione bloccante
             flag_button = BUTTON_UNPRESSED;
         }
-        if (flag_button == BUTTON_UNPRESSED)
+        if (flag_button == BUTTON_UNPRESSED && stop_read == I2C_MSTR_NO_ERROR && stop_write == I2C_MSTR_NO_ERROR)
         {
             
             I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_STATUS_REG, &check);
@@ -273,7 +245,7 @@ int main(void)
                 }
                 else 
                 {
-                UART_PutString("Error occurred during I2C comunication to accelerations registers 1\r\n"); 
+                    UART_PutString("Error occurred during I2C comunication to accelerations registers 1\r\n"); 
                 }
             }
         }
