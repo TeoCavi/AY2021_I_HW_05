@@ -16,6 +16,9 @@
     #include "cytypes.h"
     #include "Error.h"
     
+    uint8_t stop_read; //
+    uint8_t stop_write;
+    
     ErrorCode I2C_Peripheral_Start(void);
     ErrorCode I2C_Peripheral_Stop(void);
     

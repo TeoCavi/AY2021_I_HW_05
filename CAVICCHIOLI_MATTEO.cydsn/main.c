@@ -24,48 +24,69 @@
 
 //#define M_digit_TO_MS2 2*9.8/2047
 #define M_digit_TO_MS2      4*9.8/4095
+#define PRECISION 1000
 //#define Q_digit_To_MS2 M_digit_TO_MS2*4095 
+
+#define MSB 1
+#define LSB 0
+#define DATA_READY 0b00001000 
+
+#define HEAD 0xA0
+#define TAIL 0xC0
+
+#define TRANSMIT_SIZE 1+ACC_BYTES+1
+#define ACC_BYTES 6
+#define START 0
+#define AX_M 1
+#define AX_L 2    
+#define AY_M 3
+#define AY_L 4
+#define AZ_M 5
+#define AZ_L 6
+#define END TRANSMIT_SIZE-1
+
+#define ACC_AXIAL_SIZE 2
+
+
 
 
 
 ErrorCode error;
 
-uint8 freq;
-uint8 check;
-//volatile uint8 flag_button = 1;
 
-uint8_t Acc_X[2];
-uint8_t Acc_Y[2];
-uint8_t Acc_Z[2];
+uint8 check;
+volatile uint8 flag_button = 1;
+
+uint8_t Acc_X[ACC_AXIAL_SIZE];
+uint8_t Acc_Y[ACC_AXIAL_SIZE];
+uint8_t Acc_Z[ACC_AXIAL_SIZE];
+
 int16 A_X_u;
 int16 A_Y_u;
 int16 A_Z_u;
+
 int16 A_X;
 int16 A_Y;
 int16 A_Z;
+
 float A_X_Conv;
 float A_Y_Conv;
 float A_Z_Conv;
 
-uint8_t Acc_TOT[8];
+uint8_t Acc_TOT[TRANSMIT_SIZE];
+
 
 
 
 int main(void)
 {
-    
-    UART_Start();
-    I2C_Peripheral_Start();
-    
-    CyDelay(5);
-    
     EEPROM_Start();
     //EEPROM_UpdateTemperature();
     //EEPROM_WriteByte(0xC0,0x0000);
     
     
-    freq = EEPROM_ReadByte(0x0000);
-    switch(freq)
+    freq = EEPROM_ReadByte(FREQ_ADRESS);
+    switch(freq) //first start
     {
         case CTRL_REG1_FREQ_1:
         case CTRL_REG1_FREQ_10:
@@ -76,20 +97,44 @@ int main(void)
             break;
         default:
             EEPROM_UpdateTemperature();
-            EEPROM_WriteByte(CTRL_REG1_FREQ_1,0x0000);
+            EEPROM_WriteByte(CTRL_REG1_FREQ_1,FREQ_ADRESS);
             break;
     }
-    freq = EEPROM_ReadByte(0x0000);
+    freq = EEPROM_ReadByte(FREQ_ADRESS);
     
-    char message[50] = {'\0'};
+    //char message[50] = {'\0'};
+    //uint8_t ctrl_reg1;
     
     CyGlobalIntEnable; 
     
-    uint8_t ctrl_reg1;
+    UART_Start();  
+    I2C_Peripheral_Start();
+    CyDelay(5);
     
-    error = I2C_Peripheral_WriteRegister(DEVICE_ADDRESS, 
-                              LIS3DH_CTRL_REG4, 
-                              CTRL_REG4_HR);
+    
+    do
+    {
+        error = I2C_Peripheral_WriteRegister(DEVICE_ADDRESS, LIS3DH_CTRL_REG4, CTRL_REG4_HR);
+        if (error == NO_ERROR)
+        {
+            error = I2C_Peripheral_WriteRegister(DEVICE_ADDRESS, LIS3DH_CTRL_REG1, freq);
+            if (error == NO_ERROR)
+            {
+                
+                UART_PutString("ACCELEROMETER READY");
+            }
+            else
+            {
+                UART_PutString("ERROR OCCURRED DURING REGISTER SETTING");   
+            }
+        }
+    } 
+    while(error != NO_ERROR);
+
+    
+    
+    
+    
 
     /*if (error == NO_ERROR)
     {
@@ -101,13 +146,9 @@ int main(void)
         UART_PutString("Error occurred during I2C comm to set control register 4\r\n");   
     }*/
 
-    error = I2C_Peripheral_WriteRegister(DEVICE_ADDRESS, 
-                      LIS3DH_CTRL_REG1, 
-                      freq);
     
-    error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS,
-                                        LIS3DH_CTRL_REG1,
-                                        &ctrl_reg1);
+    
+    /*error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_CTRL_REG1, &ctrl_reg1);
     
     if (error == NO_ERROR)
     {
@@ -119,7 +160,7 @@ int main(void)
         UART_PutString("Error occurred during I2C comm to read control register 1\r\n");   
     }
     
-    /*if (error == NO_ERROR)
+    if (error == NO_ERROR)
     {
         sprintf(message, "CONTROL REGISTER 1 successfully written as: 0x%02X\r\n", LIS3DH_CTRL_REG1_ODR);
         UART_PutString(message); 
@@ -132,97 +173,108 @@ int main(void)
     Clock_DEB_Start();
     ISR_BUTTON_StartEx(Custom_DEBOUNCER_ISR);
     
-    Acc_TOT[0] = 0xA0;
-    Acc_TOT[7] = 0xC0;
+    Acc_TOT[START] = HEAD;
+    Acc_TOT[END] = TAIL;
     
     for(;;)
     {
-        
-        I2C_Peripheral_ReadRegister(DEVICE_ADDRESS,
-                                    LIS3DH_STATUS_REG,
-                                    &check);
-        if (check & 0b00001000)
+        if (flag_button == BUTTON_PRESSED) //&& stop_write == I2C_MSTR_NO_ERROR && stop_read == I2C_MSTR_NO_ERROR) //voglio che tutte le operazioni di lettura siano terminate prima di scrivere il registro
         {
-            error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_X_L, &Acc_X[0]);
-            if (error == NO_ERROR)
+            //I2C_Peripheral_Stop();
+            //CyDelay(5);
+            //I2C_Peripheral_Start();
+            //CyDelay(5);
+            I2C_Peripheral_WriteRegister(DEVICE_ADDRESS, LIS3DH_CTRL_REG1, freq); //funzione bloccante
+            flag_button = BUTTON_UNPRESSED;
+        }
+        if (flag_button == BUTTON_UNPRESSED)
+        {
+            
+            I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_STATUS_REG, &check);
+            
+            if (check & DATA_READY) //dati pronti 
             {
-                error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_X_H, &Acc_X[1]);
+                error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_X_L, &Acc_X[LSB]);
                 if (error == NO_ERROR)
                 {
-                    error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_Y_L, &Acc_Y[0]);
+                    error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_X_H, &Acc_X[MSB]);
                     if (error == NO_ERROR)
                     {
-                        error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_Y_H, &Acc_Y[1]);
+                        error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_Y_L, &Acc_Y[LSB]);
                         if (error == NO_ERROR)
                         {
-                            error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_Z_L, &Acc_Z[0]);
+                            error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_Y_H, &Acc_Y[MSB]);
                             if (error == NO_ERROR)
                             {
-                                error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_Z_H, &Acc_Z[1]);
+                                error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_Z_L, &Acc_Z[LSB]);
+                                if (error == NO_ERROR)
+                                {
+                                    error = I2C_Peripheral_ReadRegister(DEVICE_ADDRESS, LIS3DH_OUT_Z_H, &Acc_Z[MSB]);
+                                }
                             }
                         }
                     }
                 }
-            }
-            
-            if (error == NO_ERROR)
-            {
-                A_X_u = (int16)((Acc_X[0] | (Acc_X[1]<<8)))>>4;
-                A_Y_u = (int16)((Acc_Y[0] | (Acc_Y[1]<<8)))>>4;
-                A_Z_u = (int16)((Acc_Z[0] | (Acc_Z[1]<<8)))>>4;
                 
-                /*if (A_X_u >= 0 && A_X_u <=2047) 
+                if (error == NO_ERROR)
                 {
-                    A_X_Conv = (A_X_u*M_digit_TO_MS2)*1000;     
-                }
-                else if (A_X_u >2047 && A_X_u <4096)
-                {
-                    A_X_Conv = (A_X_u*M_digit_TO_MS2 - Q_digit_To_MS2)*1000;
-                }*/
-                
-                A_X_Conv = (A_X_u*M_digit_TO_MS2)*1000;
-                A_X = (int16)(A_X_Conv);
-                
-                Acc_TOT[1] = A_X & 0xFF;
-                Acc_TOT[2] = A_X >> 8;
+                    A_X_u = (int16)((Acc_X[LSB] | (Acc_X[MSB]<<8)))>>4;
+                    A_Y_u = (int16)((Acc_Y[LSB] | (Acc_Y[MSB]<<8)))>>4;
+                    A_Z_u = (int16)((Acc_Z[LSB] | (Acc_Z[MSB]<<8)))>>4;
+                    
+                    /*if (A_X_u >= 0 && A_X_u <=2047) 
+                    {
+                        A_X_Conv = (A_X_u*M_digit_TO_MS2)*1000;     
+                    }
+                    else if (A_X_u >2047 && A_X_u <4096)
+                    {
+                        A_X_Conv = (A_X_u*M_digit_TO_MS2 - Q_digit_To_MS2)*1000;
+                    }*/
+                    
+                    A_X_Conv = (A_X_u*M_digit_TO_MS2)*PRECISION;
+                    A_X = (int16)(A_X_Conv);
+                    
+                    Acc_TOT[AX_M] = A_X >> 8;
+                    Acc_TOT[AX_L] = A_X & 0xFF;
 
-                
-                /*if (A_Y_u >= 0 && A_Y_u <=2047) 
-                {
-                    A_Y_Conv = (A_Y_u*M_digit_TO_MS2)*1000;     
-                }
-                else if (A_Y_u >2047 && A_Y_u <4096)
-                {
-                    A_Y_Conv = (A_Y_u*M_digit_TO_MS2 - Q_digit_To_MS2)*1000;
-                }*/
-                
-                A_Y_Conv = (A_Y_u*M_digit_TO_MS2)*1000;
-                A_Y = (int16)(A_Y_Conv);
+                    
+                    /*if (A_Y_u >= 0 && A_Y_u <=2047) 
+                    {
+                        A_Y_Conv = (A_Y_u*M_digit_TO_MS2)*1000;     
+                    }
+                    else if (A_Y_u >2047 && A_Y_u <4096)
+                    {
+                        A_Y_Conv = (A_Y_u*M_digit_TO_MS2 - Q_digit_To_MS2)*1000;
+                    }*/
+                    
+                    A_Y_Conv = (A_Y_u*M_digit_TO_MS2)*PRECISION;
+                    A_Y = (int16)(A_Y_Conv);
 
-                Acc_TOT[3] = A_Y & 0xFF;
-                Acc_TOT[4] = A_Y >> 8;
-                
-                /*if (A_Z_u >= 0 && A_Z_u <=2047) 
-                {
-                    A_Z_Conv = (A_Z_u*M_digit_TO_MS2)*1000;     
+                    Acc_TOT[AY_M] = (uint8_t)(A_Y >> 8);
+                    Acc_TOT[AY_L] = (uint8_t)(A_Y & 0xFF);
+                    
+                    
+                    /*if (A_Z_u >= 0 && A_Z_u <=2047) 
+                    {
+                        A_Z_Conv = (A_Z_u*M_digit_TO_MS2)*1000;     
+                    }
+                    else if (A_Z_u >2047 && A_Z_u <4096)
+                    {
+                        A_Z_Conv = (A_Z_u*M_digit_TO_MS2 - Q_digit_To_MS2)*1000;
+                    }*/
+                    
+                    A_Z_Conv = (A_Z_u*M_digit_TO_MS2)*PRECISION;
+                    A_Z = (int16)(A_Z_Conv);
+                    
+                    Acc_TOT[AZ_M] = (uint8_t)(A_Z >> 8);
+                    Acc_TOT[AZ_L] = (uint8_t)(A_Z & 0xFF);
+                    
+                    UART_PutArray(Acc_TOT,TRANSMIT_SIZE);
                 }
-                else if (A_Z_u >2047 && A_Z_u <4096)
+                else 
                 {
-                    A_Z_Conv = (A_Z_u*M_digit_TO_MS2 - Q_digit_To_MS2)*1000;
-                }*/
-                
-                A_Z_Conv = (A_Z_u*M_digit_TO_MS2)*1000;
-                A_Z = (int16)(A_Z_Conv);
-                
-                Acc_TOT[5] = (uint8_t)(A_Z & 0xFF);
-                Acc_TOT[6] = (uint8_t)(A_Z >> 8);
-                
-                
-                UART_PutArray(Acc_TOT,8);
-            }
-            else 
-            {
-            UART_PutString("Error occurred during I2C comm to axis register 1\r\n"); 
+                UART_PutString("Error occurred during I2C comunication to accelerations registers 1\r\n"); 
+                }
             }
         }
     }     

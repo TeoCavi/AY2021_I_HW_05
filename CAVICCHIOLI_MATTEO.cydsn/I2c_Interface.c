@@ -43,7 +43,7 @@ ErrorCode I2C_Peripheral_ReadRegister(uint8_t device_address,
             }
         }
     }
-    I2C_MasterSendStop();
+    stop_read = I2C_MasterSendStop();
     return error ? ERROR : NO_ERROR;
 }
 
@@ -60,7 +60,7 @@ ErrorCode I2C_Peripheral_WriteRegister(uint8_t device_address,
             error = I2C_MasterWriteByte(data);
         }
     }
-    I2C_MasterSendStop();
+    stop_write = I2C_MasterSendStop(); //
     return error ? ERROR : NO_ERROR;
 }
 

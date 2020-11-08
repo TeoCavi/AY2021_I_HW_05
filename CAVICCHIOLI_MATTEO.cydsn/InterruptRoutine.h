@@ -15,6 +15,11 @@
     #include "cytypes.h"
     #include "project.h"
     
+    #define BUTTON_UNPRESSED 1
+    #define BUTTON_PRESSED 0
+    #define FREQ_ADRESS 0x0000
+    #define FREQ_VARIATION 0x10 
+    
     #define DEVICE_ADDRESS 0x18
 
     #define LIS3DH_STATUS_REG   0x27
@@ -30,6 +35,9 @@
     #define CTRL_REG1_FREQ_50   0x47
     #define CTRL_REG1_FREQ_100  0x57
     #define CTRL_REG1_FREQ_200  0x67
+    
+    uint8 freq;
+    volatile uint8 flag_button;
     
     CY_ISR_PROTO(Custom_DEBOUNCER_ISR);
     
