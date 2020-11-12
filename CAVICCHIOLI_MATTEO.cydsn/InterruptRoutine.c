@@ -13,7 +13,7 @@
 #include "I2C_Interface.h"
 
 
-
+//ISR del debouncer attivata su neg ad ogni pressione del tasto
 CY_ISR(Custom_DEBOUNCER_ISR)
 {
     flag_button = BUTTON_PRESSED;

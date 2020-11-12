@@ -43,7 +43,7 @@ ErrorCode I2C_Peripheral_ReadRegister(uint8_t device_address,
             }
         }
     }
-    stop_read = I2C_MasterSendStop();
+    stop_read = I2C_MasterSendStop(); //variabile aggiunta per controllare effettiva uscita dalla bloccante che attende il bit di stop
     return error ? ERROR : NO_ERROR;
 }
 
@@ -60,7 +60,7 @@ ErrorCode I2C_Peripheral_WriteRegister(uint8_t device_address,
             error = I2C_MasterWriteByte(data);
         }
     }
-    stop_write = I2C_MasterSendStop(); //
+    stop_write = I2C_MasterSendStop(); //variabile aggiunta per controllare effettiva uscita dalla bloccante che attende il bit di stop
     return error ? ERROR : NO_ERROR;
 }
 
